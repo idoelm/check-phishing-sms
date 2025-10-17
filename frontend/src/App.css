@@ -1,0 +1,79 @@
+.App {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background-color: #f7f7f7;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.App-header {
+  background-color: #282c34;
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+textarea {
+  width: 80%;
+  max-width: 600px;
+  height: 100px;
+  margin: 10px 0;
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  resize: vertical;
+}
+
+button {
+  background-color: #007bff;
+  color: white;
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+button:disabled {
+  background-color: #aaa;
+  cursor: not-allowed;
+}
+
+.result-container {
+  margin-top: 30px;
+}
+
+.results-table {
+  margin: 0 auto;
+  border-collapse: collapse;
+  width: 80%;
+}
+
+.results-table th,
+.results-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+.results-table th {
+  background-color: #f2f2f2;
+}
+
+.suspicious {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.safe {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.message-info {
+  margin-top: 1rem;
+  font-weight: bold;
+  color: #007bff;
+}
