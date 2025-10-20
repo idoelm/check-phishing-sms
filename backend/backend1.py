@@ -71,6 +71,7 @@ def predict():
     X_input = vectorizer.transform([input_text])
 
     results = {}
+    probability_of_spam = 0
     sum_spam = 0 
     Post_classification_label = 0 
     suspicious_words = [] 
@@ -79,19 +80,27 @@ def predict():
     svc_pred = linear_svc.predict(X_input)[0]
     if svc_pred == 1:
         sum_spam += 1
-    results["LinearSVC"] = {"prediction": int(svc_pred), "time": round((time.time() - start) * 1000, 2)}
+    results["LinearSVC"] = {
+        "prediction": int(svc_pred),
+        "time": round((time.time() - start) * 1000, 2)}
 
     start = time.time()
     rf_pred = random_forest.predict(X_input)[0]
+    rf_prob = random_forest.predict_proba(X_input)[0][1]
     if rf_pred == 1:
         sum_spam += 1
-    results["RandomForest"] = {"prediction": int(rf_pred), "time": round((time.time() - start) * 1000, 2)}
+    results["RandomForest"] = {
+        "prediction": int(rf_pred), 
+        "time": round((time.time() - start) * 1000, 2)}
 
     start = time.time()
     xgb_pred = xgb_model.predict(X_input)[0]
+    xgb_prob = xgb_model.predict_proba(X_input)[0][1]
     if xgb_pred == 1:
         sum_spam += 1
-    results["XGBoost"] = {"prediction": int(xgb_pred), "time": round((time.time() - start) * 1000, 2)}
+    results["XGBoost"] = {
+        "prediction": int(xgb_pred),
+        "time": round((time.time() - start) * 1000, 2)}
 
     message_in_data = save_spam_message(input_text, sum_spam)
     
@@ -102,12 +111,14 @@ def predict():
         suspicious_words = get_top_suspicious_words(input_text, vectorizer)
     else:
         suspicious_words = []
-
+    probability_of_spam = round(((xgb_prob + rf_prob)/2),2)
+    phishing_probability = "according  to our system this SMS is " + str(probability_of_spam * 100) + "% phishing"
     return jsonify({
         "results": results,
         "final_prediction": int(Post_classification_label),
         "suspicious_words": suspicious_words,
-        "message_info": message_in_data
+        "message_info": message_in_data,
+        "phishing_probability": phishing_probability
     })
 
 if __name__ == "__main__":

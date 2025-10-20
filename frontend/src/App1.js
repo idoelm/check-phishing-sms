@@ -10,6 +10,7 @@ export default function App1() {
   const [finalPrediction, setFinalPrediction] = useState(null); 
   const [suspiciousWords, setSuspiciousWords] = useState([]);  
   const [messageInfo, setMessageInfo] = useState('');
+  const [probOfSpam, setProbSpam] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -19,6 +20,7 @@ export default function App1() {
     setFinalPrediction(null);
     setSuspiciousWords([]);
     setMessageInfo('');
+    setProbSpam('');
     setError(null);
 
     try {
@@ -48,6 +50,7 @@ export default function App1() {
       );
       setSuspiciousWords(Array.isArray(data.suspicious_words) ? data.suspicious_words : []);
       setMessageInfo(data.message_info || '');
+      setProbSpam(data.phishing_probability)
 
     } catch (err) {
       console.error('Error fetching predictions:', err);
@@ -75,11 +78,11 @@ export default function App1() {
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Enter text to analyze..."
+          placeholder="Enter SMS"
         />
 
         <button onClick={handlePredict} disabled={!text.trim() || loading}>
-          {loading ? 'Analyzing...' : 'Analyze SMS'}
+          {loading ? 'Analyzing...' : 'send SMS to check'}
         </button>
 
         {loading && <p className="loading">Analyzing, please wait...</p>}
@@ -138,7 +141,9 @@ export default function App1() {
                 ))}
               </tbody>
             </table>
-            {messageInfo && <p className="message-info">{messageInfo}</p>}
+            {messageInfo && <p className="messageInfo">{messageInfo}</p>}
+
+            {probOfSpam && <p className="probOfSpam">{probOfSpam}</p>}
           </div>
         )}
       </main>

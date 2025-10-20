@@ -141,3 +141,26 @@ button:disabled {
   margin: 0;
   padding-left: 18px;
 }
+
+.messageInfo{
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+  border: 3px solid #349bea;
+  font-size: 16px;
+  font-weight: 500;
+  margin-top: 10px;
+  padding: 10px 15px;
+  border-radius: 8px;
+  background-color: #1cc8db;
+  color: #333;
+}
+
+.probOfSpam {
+  display: block;
+  font-weight: bolder;
+  color: #efd007;
+  margin-top: 10px;
+  padding: 10px 15px;
+}
