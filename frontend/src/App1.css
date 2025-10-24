@@ -31,7 +31,8 @@ textarea {
   font-size: 16px;
   border: 1px solid #ccc;
   border-radius: 6px;
-  resize: vertical;
+  resize: none;
+  overflow-y: auto;
 }
 
 button {
@@ -112,21 +113,23 @@ button:disabled {
   background: #f7f7f7;
 }
 
-.final-badge {
+.design-safe {
   display: inline-block;
   padding: 8px 12px;
   border-radius: 999px;
   font-weight: 600;
   margin-bottom: 8px;
-}
-
-.final-badge.safe {
   background: #e7f7ea;
   color: #1f7a2d;
   border: 1px solid #bfe6c7;
 }
 
-.final-badge.suspicious {
+.design-suspicious {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  margin-bottom: 8px;
   background: #fdebec;
   color: #b00020;
   border: 1px solid #f7c1c5;

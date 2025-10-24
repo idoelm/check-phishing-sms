@@ -30,26 +30,20 @@ xgb_model.fit(X, labels)
 
 def save_spam_message(message_from_user, sum):
     file_path = 'smishingDB_augmented.csv'
-    message_in_data = ""
-
     if os.path.exists(file_path):
         existing_data = pd.read_csv(file_path, encoding='latin-1')
         if message_from_user in existing_data['TEXT'].values:
             print("Message already exists in dataset.")
-            message_in_data = "Message already exists in dataset."
-            return message_in_data
+            return "Message already exists in dataset."
     else:
         existing_data = pd.DataFrame(columns=['LABEL', 'TEXT'])
-        message_in_data = "Message added to dataset."
-
-    if sum >= 2:
-        new_data = pd.DataFrame({'LABEL': [1], 'TEXT': [message_from_user]})
-    else:
-        new_data = pd.DataFrame({'LABEL': [0], 'TEXT': [message_from_user]})
-
+    label = 1
+    if sum < 2:
+        label = 0
+    new_data = pd.DataFrame({'LABEL': [label], 'TEXT': [message_from_user]})
     new_data.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False, encoding='latin-1')
-    message_in_data = "Message added to dataset."
-    return message_in_data
+    print("Message added to dataset.")
+    return "Message added to dataset."
 
 def get_top_suspicious_words(text, vectorizer, max_words = 5):
     response = vectorizer.transform([text])
@@ -82,25 +76,30 @@ def predict():
         sum_spam += 1
     results["LinearSVC"] = {
         "prediction": int(svc_pred),
-        "time": round((time.time() - start) * 1000, 2)}
+        "time": round((time.time() - start) * 1000, 2),
+        "prob": "NONE"}
 
     start = time.time()
     rf_pred = random_forest.predict(X_input)[0]
-    rf_prob = random_forest.predict_proba(X_input)[0][1]
+    rf_prob = float(random_forest.predict_proba(X_input)[0][1] * 100)
+    rf_prob_str = str(rf_prob) + "%"
     if rf_pred == 1:
         sum_spam += 1
     results["RandomForest"] = {
         "prediction": int(rf_pred), 
-        "time": round((time.time() - start) * 1000, 2)}
+        "time": round((time.time() - start) * 1000, 2),
+        "prob": rf_prob_str}
 
     start = time.time()
     xgb_pred = xgb_model.predict(X_input)[0]
-    xgb_prob = xgb_model.predict_proba(X_input)[0][1]
+    xgb_prob = float(xgb_model.predict_proba(X_input)[0][1] * 100)
+    xgb_prob_str = str(xgb_prob) + "%"
     if xgb_pred == 1:
         sum_spam += 1
     results["XGBoost"] = {
         "prediction": int(xgb_pred),
-        "time": round((time.time() - start) * 1000, 2)}
+        "time": round((time.time() - start) * 1000, 2),
+        "prob": xgb_prob_str}
 
     message_in_data = save_spam_message(input_text, sum_spam)
     
@@ -112,7 +111,7 @@ def predict():
     else:
         suspicious_words = []
     probability_of_spam = round(((xgb_prob + rf_prob)/2),2)
-    phishing_probability = "according  to our system this SMS is " + str(probability_of_spam * 100) + "% phishing"
+    phishing_probability = "according  to our system this SMS is " + str(probability_of_spam) + "% phishing"
     return jsonify({
         "results": results,
         "final_prediction": int(Post_classification_label),

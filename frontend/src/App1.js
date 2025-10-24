@@ -61,8 +61,9 @@ export default function App1() {
   };
 
   const verdictText =
-    finalPrediction === 1 ? 'Phishing (Suspicious)' :
-    finalPrediction === 0 ? 'Safe' : '';
+    finalPrediction === 1
+      ? "Phishing (Suspicious)"
+      : "Safe";
 
   return (
     <div className="App">
@@ -92,7 +93,7 @@ export default function App1() {
           <div className="final-card">
             <div
               className={
-                finalPrediction === 1 ? 'final-badge suspicious' : 'final-badge safe'
+                finalPrediction === 1 ? 'design-suspicious' : 'design-safe'
               }
             >
               {verdictText}
@@ -122,6 +123,7 @@ export default function App1() {
                 <tr>
                   <th>Model</th>
                   <th>Prediction</th>
+                  <th>Spam probability</th>
                   <th>Time (ms)</th>
                 </tr>
               </thead>
@@ -136,6 +138,7 @@ export default function App1() {
                     >
                       {results[model].prediction === 1 ? 'Suspicious' : 'Safe'}
                     </td>
+                    <td>{results[model].prob}</td>
                     <td>{results[model].time}</td>
                   </tr>
                 ))}
