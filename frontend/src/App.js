@@ -2,124 +2,154 @@ import React, { useState } from 'react';
 import './App.css';
 import logo from './Logo.png';
 
-function App() {
-  const [message, setMessage] = useState('');
-  const [result, setResult] = useState(null);
-  const [suspiciousWords, setSuspiciousWords] = useState([]);
+const API_URL = 'http://127.0.0.1:5000/checkSMS';
+
+export default function App() {
+  const [text, setText] = useState('');
+  const [results, setResults] = useState(null);         
+  const [finalPrediction, setFinalPrediction] = useState(null); 
+  const [suspiciousWords, setSuspiciousWords] = useState([]);  
+  const [messageInfo, setMessageInfo] = useState('');
+  const [probOfSpam, setProbSpam] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [inputError, setInputError] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (message.trim() === '') {
-      setInputError("The message is empty");
-      setResult(null);
-      setSuspiciousWords([]);
-      setError(null);
-      return;
-    }
-    setInputError('');
+  const handlePredict = async () => {
     setLoading(true);
-    setResult(null);
+    setResults(null);
+    setFinalPrediction(null);
     setSuspiciousWords([]);
+    setMessageInfo('');
+    setProbSpam('');
     setError(null);
+
     try {
-      const response = await fetch('http://localhost:8000/check', {
+      const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
       });
+
       if (!response.ok) {
-        throw new Error(`ERROR HTTP!: ${response.status}`);
+        let serverMsg = '';
+        try {
+          const maybeJson = await response.json();
+          serverMsg = maybeJson?.error || '';
+        } catch (_) {}
+        throw new Error(serverMsg || `Server error: ${response.status}`);
       }
+
       const data = await response.json();
-      setResult(data.result);
-      setSuspiciousWords(data.suspicious_words);
-    }
-    catch (err) {
-      console.error("Error checking message", err);
-      setError("Connection to server failed.");
+      if (!data || Object.keys(data).length === 0) {
+        throw new Error('No results received from server.');
+      }
+
+      setResults(data.results || null);
+      setFinalPrediction(
+        typeof data.final_prediction === 'number' ? data.final_prediction : null
+      );
+      setSuspiciousWords(Array.isArray(data.suspicious_words) ? data.suspicious_words : []);
+      setMessageInfo(data.message_info || '');
+      setProbSpam(data.phishing_probability)
+
+    } catch (err) {
+      console.error('Error fetching predictions:', err);
+      setError(err.message || 'Unknown error');
     } finally {
       setLoading(false);
     }
   };
 
-  let resultSection = null;
-
-  if (result !== null) {
-    let resultMessage = null;
-    if (result === 1) {
-      resultMessage = <p className="suspicious">fishing message.</p>;
-    } else {
-      resultMessage = <p className="safe">Reliable message</p>;
-    }
-    let suspiciousWordsSection = null;
-    
-    if (suspiciousWords.length > 0) {
-      const wordItems = suspiciousWords.map((word, index) => {
-        return <li key={index}>{word}</li>;
-      });
-      suspiciousWordsSection = (
-        <div className="suspicious-words">
-          <h3>Suspicious words:</h3>
-          <ul>{wordItems}</ul>
-        </div>
-      );
-    }
-
-    resultSection = (
-      <div className="result-container">
-        <h2>Result:</h2>
-        {resultMessage}
-        {suspiciousWordsSection}
-      </div>
-    );
-  }
-
-  let errorMessage = null;
-  if (error !== null) {
-    errorMessage = <p className="error-message">{error}</p>;
-  }
-
-  let inputErrorMessage = null;
-  if (inputError !== '') {
-    inputErrorMessage = <p className="input-error-message">{inputError}</p>;
-  }
+  const verdictText =
+    finalPrediction === 1
+      ? "Phishing (Suspicious)"
+      : "Safe";
 
   return (
     <div className="App">
       <header className="App-header">
-        <img 
-          src={logo} 
-          alt="Check Phishing SMS" 
+        <img
+          src={logo}
+          alt="Check Phishing SMS"
           className="app-logo"
         />
       </header>
 
       <main>
-        <form onSubmit={handleSubmit}>
-          <textarea
-            placeholder="Enter the SMS message you received for verification."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows="5"
-            cols="50"
-          ></textarea>
-          <br />
-          {inputErrorMessage}
-          <button type="submit" disabled={loading}>
-            {loading ? 'Please wait, we are checking.' : 'Check the message'}
-          </button>
-        </form>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Enter SMS"
+        />
 
-        {errorMessage}
-        {resultSection}
+        <button onClick={handlePredict} disabled={!text.trim() || loading}>
+          {loading ? 'Analyzing...' : 'send SMS to check'}
+        </button>
+
+        {loading && <p className="loading">Analyzing, please wait...</p>}
+        {error && <p className="error-message">{error}</p>}
+
+        {finalPrediction !== null && (
+          <div className="final-card">
+            <div
+              className={
+                finalPrediction === 1 ? 'design-suspicious' : 'design-safe'
+              }
+            >
+              {verdictText}
+            </div>
+
+            {finalPrediction === 1 && suspiciousWords?.length > 0 && (
+              <div className="suspicious-words">
+                <h3>Top 5 Suspicious Words</h3>
+                <ul>
+                  {suspiciousWords.map((word, index) => {
+                    return (
+                      <li key={index}>
+                        {word}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+        {results && (
+          <div className="result-container">
+            <h2>Models</h2>
+            <table className="results-table">
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>Prediction</th>
+                  <th>Spam probability</th>
+                  <th>Time (ms)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(results).map((model) => (
+                  <tr key={model}>
+                    <td>{model}</td>
+                    <td
+                      className={
+                        results[model].prediction === 1 ? 'suspicious' : 'safe'
+                      }
+                    >
+                      {results[model].prediction === 1 ? 'Suspicious' : 'Safe'}
+                    </td>
+                    <td>{results[model].prob}</td>
+                    <td>{results[model].time}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {messageInfo && <p className="messageInfo">{messageInfo}</p>}
+
+            {probOfSpam && <p className="probOfSpam">{probOfSpam}</p>}
+          </div>
+        )}
       </main>
     </div>
   );
 }
-
-export default App;

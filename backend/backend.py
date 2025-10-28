@@ -1,63 +1,122 @@
-from flask import Flask, request, jsonify 
-from flask_cors import CORS
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
+from flask import Flask, request, jsonify
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+import time
+import pandas as pd
 import numpy as np
+from flask_cors import CORS
+import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
+CORS(app)
+
 data = pd.read_csv('smishingDB_augmented.csv', encoding='latin-1')
-X_train, X_test, y_train, y_test = train_test_split(data['TEXT'], data['LABEL'], test_size=0.2, random_state=42)
-spam_detector_pipeline = Pipeline([
-    ('words_to_vector', TfidfVectorizer(ngram_range=(1, 2))),
-    ('classifier', RandomForestClassifier())
-])
-spam_detector_pipeline.fit(X_train, y_train)
+texts = data['TEXT'].astype(str)
+labels = data['LABEL'].astype(int)
 
-def getSuspiciousWords(message, pipeline, top_n=5):
-    vectorizer = pipeline.named_steps['words_to_vector']
-    message_to_vector_matrix = vectorizer.transform([message])
-    feature_array = np.array(vectorizer.get_feature_names_out())
-    words_to_vector_scores = message_to_vector_matrix.toarray().flatten()
-    top_Suspicious = words_to_vector_scores.argsort()[-top_n:][::-1]
-    Suspicious_words = feature_array[top_Suspicious]
-    return Suspicious_words.tolist()
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(texts)
 
-def SaveSpamMessage(message_from_user, label):
-    try:
-        existing_data = pd.read_csv('smishingDB_augmented.csv', encoding='latin-1')
+linear_svc = LinearSVC()
+linear_svc.fit(X, labels)
+
+random_forest = RandomForestClassifier(n_estimators=100, random_state=42)
+random_forest.fit(X, labels)
+
+xgb_model = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
+xgb_model.fit(X, labels)
+
+def save_spam_message(message_from_user, sum):
+    file_path = 'smishingDB_augmented.csv'
+    if os.path.exists(file_path):
+        existing_data = pd.read_csv(file_path, encoding='latin-1')
         if message_from_user in existing_data['TEXT'].values:
-            print("Message is exists.")
-            return
-    except FileNotFoundError:
-        pass  
-
-    new_data = pd.DataFrame({'LABEL': [label], 'TEXT': [message_from_user]})
-    new_data.to_csv('smishingDB_augmented.csv', mode='a', header=False, index=False, encoding='latin-1')
-
-@app.route('/check', methods=['POST'])
-def check_message():
-    data = request.json
-    message_from_user = data.get('message', '')
-    suspicious_words = None
-
-    prediction = spam_detector_pipeline.predict([message_from_user])[0]
-    if prediction == 0:
-        print("Result: Not Spam\n")
-        SaveSpamMessage(message_from_user, 0)
-        suspicious_words = []
+            return "Message already exists in database."
     else:
-        print("Result: Spam\n")
-        suspicious_words = getSuspiciousWords(message_from_user, spam_detector_pipeline)
-        SaveSpamMessage(message_from_user, 1)
-    response = {
-        'result': int(prediction),
-        'suspicious_words': suspicious_words
-    }
-    return jsonify(response)
+        existing_data = pd.DataFrame(columns=['LABEL', 'TEXT'])
+    label = 1
+    if sum < 2:
+        label = 0
+    new_data = pd.DataFrame({'LABEL': [label], 'TEXT': [message_from_user]})
+    new_data.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False, encoding='latin-1')
+    return "Message added to database."
 
-if __name__ == '__main__':
-    app.run(debug=True, port=8000)
+def get_top_suspicious_words(text, vectorizer, max_words = 5):
+    response = vectorizer.transform([text])
+    feature_array = np.array(vectorizer.get_feature_names_out())
+    tfidf_sorting = np.argsort(response.toarray()).flatten()[::-1]
+    top_five_words = feature_array[tfidf_sorting][:max_words]
+    return top_five_words.tolist()
+
+@app.route("/checkSMS", methods=["POST"])
+def predict():
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+    data = request.json
+    input_text = data.get("text", "")
+
+    if not input_text.strip():
+        return jsonify({"error": "Empty message"}), 400
+
+    inputFromUser = vectorizer.transform([input_text])
+
+    results = {}
+    probability_of_spam = 0
+    sum_spam = 0 
+    Post_classification_label = 0 
+    suspicious_words = [] 
+
+    start = time.time()
+    svc_pred = linear_svc.predict(inputFromUser)[0]
+    if svc_pred == 1:
+        sum_spam += 1
+    results["LinearSVC"] = {
+        "prediction": int(svc_pred),
+        "time": round((time.time() - start) * 1000, 2),
+        "prob": "NONE"}
+
+    start = time.time()
+    rf_pred = random_forest.predict(inputFromUser)[0]
+    rf_prob = round(float(random_forest.predict_proba(inputFromUser)[0][1] * 100),2)
+    rf_prob_str = str(rf_prob) + "%"
+    if rf_pred == 1:
+        sum_spam += 1
+    results["RandomForest"] = {
+        "prediction": int(rf_pred), 
+        "time": round((time.time() - start) * 1000, 2),
+        "prob": rf_prob_str}
+
+    start = time.time()
+    xgb_pred = xgb_model.predict(inputFromUser)[0]
+    xgb_prob = round(float(xgb_model.predict_proba(inputFromUser)[0][1] * 100),2)
+    xgb_prob_str = str(xgb_prob) + "%"
+    if xgb_pred == 1:
+        sum_spam += 1
+    results["XGBoost"] = {
+        "prediction": int(xgb_pred),
+        "time": round((time.time() - start) * 1000, 2),
+        "prob": xgb_prob_str}
+
+    message_in_data = save_spam_message(input_text, sum_spam)
+    
+    if sum_spam >= 2:
+        Post_classification_label = 1
+
+    if Post_classification_label == 1:
+        suspicious_words = get_top_suspicious_words(input_text, vectorizer)
+    else:
+        suspicious_words = []
+    probability_of_spam = round(((xgb_prob + rf_prob)/2),2)
+    phishing_probability = "according  to our system this SMS is " + str(probability_of_spam) + "% phishing"
+    return jsonify({
+        "results": results,
+        "final_prediction": int(Post_classification_label),
+        "suspicious_words": suspicious_words,
+        "message_info": message_in_data,
+        "phishing_probability": phishing_probability
+    })
+
+if __name__ == "__main__":
+    app.run(debug=True)
